@@ -12,11 +12,6 @@ import (
 
 const maxRequestBytes = 10 << 20 // Includes multipart overhead.
 
-type matrixData struct {
-	cells    [][]string
-	integers [][]*big.Int
-}
-
 func newHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/echo", matrixHandler("echo"))
@@ -57,23 +52,24 @@ func matrixHandler(operation string) http.HandlerFunc {
 		var output string
 		switch operation {
 		case "echo":
-			output, err = encodeMatrix(matrix.cells)
+			output = encodeMatrix(matrix)
 		case "invert":
-			output, err = encodeMatrix(transpose(matrix.cells))
+			output = encodeMatrix(transpose(matrix))
 		case "flatten":
-			values := make([]string, 0, len(matrix.cells)*len(matrix.cells))
-			for _, row := range matrix.cells {
-				values = append(values, row...)
+			var values strings.Builder
+			for _, row := range matrix {
+				for _, value := range row {
+					if values.Len() > 0 {
+						values.WriteByte(',')
+					}
+					values.WriteString(value)
+				}
 			}
-			output = strings.Join(values, ",")
+			output = values.String()
 		case "sum", "multiply":
-			output = calculate(matrix.integers, operation == "multiply")
+			output = calculate(matrix, operation == "multiply")
 		default:
 			http.Error(w, "unsupported operation", http.StatusInternalServerError)
-			return
-		}
-		if err != nil {
-			http.Error(w, "cannot encode matrix: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -82,53 +78,73 @@ func matrixHandler(operation string) http.HandlerFunc {
 }
 
 // readMatrix accepts a non-empty square CSV matrix containing integers.
-func readMatrix(input io.Reader) (matrixData, error) {
+func readMatrix(input io.Reader) ([][]string, error) {
 	reader := csv.NewReader(input)
 	reader.FieldsPerRecord = -1
 	cells, err := reader.ReadAll()
 	if err != nil {
-		return matrixData{}, fmt.Errorf("invalid CSV: %w", err)
+		return nil, fmt.Errorf("invalid CSV: %w", err)
 	}
 	if len(cells) == 0 {
-		return matrixData{}, errors.New("matrix must not be empty")
+		return nil, errors.New("matrix must not be empty")
 	}
-	integers := make([][]*big.Int, len(cells))
 	for rowIndex, row := range cells {
 		if len(row) != len(cells) {
-			return matrixData{}, fmt.Errorf("matrix must be square: row %d has %d columns; expected %d", rowIndex+1, len(row), len(cells))
+			return nil, fmt.Errorf("matrix must be square: row %d has %d columns; expected %d", rowIndex+1, len(row), len(cells))
 		}
-		integers[rowIndex] = make([]*big.Int, len(row))
 		for columnIndex, value := range row {
-			integer, ok := new(big.Int).SetString(strings.TrimSpace(value), 10)
-			if !ok {
-				return matrixData{}, fmt.Errorf("invalid integer at row %d, column %d: %q", rowIndex+1, columnIndex+1, value)
+			value = strings.TrimSpace(value)
+			if !isDecimalInteger(value) {
+				return nil, fmt.Errorf("invalid integer at row %d, column %d: %q", rowIndex+1, columnIndex+1, value)
 			}
-			integers[rowIndex][columnIndex] = integer
+			row[columnIndex] = value
 		}
 	}
-	return matrixData{cells: cells, integers: integers}, nil
+	return cells, nil
 }
 
-func encodeMatrix(cells [][]string) (string, error) {
-	var output strings.Builder
-	writer := csv.NewWriter(&output)
-	if err := writer.WriteAll(cells); err != nil {
-		return "", err
+func isDecimalInteger(value string) bool {
+	if len(value) > 0 && (value[0] == '+' || value[0] == '-') {
+		value = value[1:]
 	}
-	return output.String(), nil
+	if len(value) == 0 {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < '0' || value[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
-func calculate(integers [][]*big.Int, multiply bool) string {
+func encodeMatrix(cells [][]string) string {
+	var output strings.Builder
+	for _, row := range cells {
+		for column, value := range row {
+			if column > 0 {
+				output.WriteByte(',')
+			}
+			output.WriteString(value)
+		}
+		output.WriteByte('\n')
+	}
+	return output.String()
+}
+
+func calculate(cells [][]string, multiply bool) string {
 	result := big.NewInt(0)
 	if multiply {
 		result.SetInt64(1)
 	}
-	for _, row := range integers {
-		for _, integer := range row {
+	var integer big.Int
+	for _, row := range cells {
+		for _, value := range row {
+			integer.SetString(value, 10) // Decimal syntax is validated by readMatrix.
 			if multiply {
-				result.Mul(result, integer)
+				result.Mul(result, &integer)
 			} else {
-				result.Add(result, integer)
+				result.Add(result, &integer)
 			}
 		}
 	}

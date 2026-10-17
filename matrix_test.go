@@ -80,6 +80,24 @@ func TestFlattenRejectsInvalidMatrix(t *testing.T) {
 	}
 }
 
+func TestEndpointsNormalizeWhitespace(t *testing.T) {
+	input := "\"\n +001 \r\n\", 2 \r\n\" 3 \",\"-4\n\"\r\n"
+	for _, test := range []struct{ path, want string }{
+		{"/echo", "+001,2\n3,-4\n"},
+		{"/invert", "+001,3\n2,-4\n"},
+		{"/flatten", "+001,2,3,-4"},
+		{"/sum", "2"},
+		{"/multiply", "-24"},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			response := postMatrix(t, test.path, input)
+			if response.Code != http.StatusOK || response.Body.String() != test.want {
+				t.Fatalf("status %d, body %q; want %q", response.Code, response.Body.String(), test.want)
+			}
+		})
+	}
+}
+
 func TestSumAndMultiply(t *testing.T) {
 	for _, test := range []struct {
 		name, input, sum, product string
@@ -123,6 +141,17 @@ func TestInvertRejectsInvalidInput(t *testing.T) {
 		{"non-square", "1,2\n3,4\n5,6\n", "matrix must be square"},
 		{"ragged row", "1,2\n3\n", "matrix must be square"},
 		{"non-integer", "1,2\n3,x\n", "invalid integer at row 2, column 2"},
+		{"empty cell", "\"\"\n", "invalid integer"},
+		{"whitespace only", "\" \t\n\"\n", "invalid integer"},
+		{"positive sign only", "+\n", "invalid integer"},
+		{"negative sign only", "-\n", "invalid integer"},
+		{"internal whitespace", "1 2\n", "invalid integer"},
+		{"internal newline", "\"1\n2\"\n", "invalid integer"},
+		{"decimal", "1.5\n", "invalid integer"},
+		{"exponent", "1e3\n", "invalid integer"},
+		{"hexadecimal", "0x10\n", "invalid integer"},
+		{"digit separator", "1_000\n", "invalid integer"},
+		{"non-ASCII digit", "\u0661\n", "invalid integer"},
 		{"malformed CSV", "\"1,2\n", "invalid CSV"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -153,5 +182,18 @@ func TestRequestTooLarge(t *testing.T) {
 	response := postMatrix(t, "/echo", strings.Repeat("1", maxRequestBytes))
 	if response.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status %d, body %q; want 413", response.Code, response.Body.String())
+	}
+}
+
+func BenchmarkReadMatrix(b *testing.B) {
+	row := strings.TrimSuffix(strings.Repeat("1,", 500), ",") + "\n"
+	input := strings.Repeat(row, 500)
+	b.ReportAllocs()
+	b.SetBytes(int64(len(input)))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := readMatrix(strings.NewReader(input)); err != nil {
+			b.Fatal(err)
+		}
 	}
 }

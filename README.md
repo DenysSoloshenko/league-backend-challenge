@@ -20,7 +20,7 @@ curl -F 'file=@matrix.csv' http://localhost:8080/multiply
 
 `echo` returns the matrix, `invert` transposes it, and `flatten` lists its values in row order. `sum` and `multiply` use arbitrary-precision integers. For the included matrix, they return `45` and `362880`.
 
-Input must be a non-empty square matrix with no header. Invalid input returns 400, non-POST requests return 405, and requests over 10 MiB return 413.
+Input must be a non-empty square matrix with no header. Whitespace around values is trimmed. Invalid input returns 400, non-POST requests return 405, and requests over 10 MiB return 413.
 
 ## Test
 
