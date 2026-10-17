@@ -88,6 +88,7 @@ func TestSumAndMultiply(t *testing.T) {
 		{"negative values", "-1,2\n3,4\n", "8", "-24"},
 		{"zero", "-1,0\n3,4\n", "6", "0"},
 		{"one large integer", "9223372036854775808\n", "9223372036854775808", "9223372036854775808"},
+		{"large values across cells", "9223372036854775808,2\n3,4\n", "9223372036854775817", "221360928884514619392"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			for _, operation := range []struct{ path, want string }{
@@ -145,5 +146,12 @@ func TestInvertRequestValidation(t *testing.T) {
 	handler.ServeHTTP(missing, httptest.NewRequest(http.MethodPost, "/invert", nil))
 	if missing.Code != http.StatusBadRequest {
 		t.Fatalf("missing file: status %d", missing.Code)
+	}
+}
+
+func TestRequestTooLarge(t *testing.T) {
+	response := postMatrix(t, "/echo", strings.Repeat("1", maxRequestBytes))
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status %d, body %q; want 413", response.Code, response.Body.String())
 	}
 }

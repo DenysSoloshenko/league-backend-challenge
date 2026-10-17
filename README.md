@@ -1,6 +1,6 @@
 # League Backend Challenge
 
-In main.go you will find a basic web server written in GoLang. It accepts a single request _/echo_. Extend the webservice with the ability to perform the following operations
+This Go HTTP service performs five operations on an uploaded square CSV matrix of integers. It uses only the Go standard library (Go 1.23 or newer).
 
 Given an uploaded csv file
 ```
@@ -9,7 +9,7 @@ Given an uploaded csv file
 7,8,9
 ```
 
-1. Echo (given)
+1. Echo
     - Return the matrix as a string in matrix format.
     
     ```
@@ -47,7 +47,7 @@ Given an uploaded csv file
 
 The input file to these functions is a matrix, of any dimension where the number of rows are equal to the number of columns (square). Each value is an integer, and there is no header row. matrix.csv is example valid input.  
 
-Run web server
+Run the server (port 8080)
 ```
 go run .
 ```
@@ -61,18 +61,8 @@ curl -F 'file=@/path/matrix.csv' "localhost:8080/sum"
 curl -F 'file=@/path/matrix.csv' "localhost:8080/multiply"
 ```
 
-The `/invert` endpoint transposes the rows and columns; `/flatten` returns the
-values in row order on one line. `/sum` and `/multiply` return the sum and
-product of all values as decimal integers. They use arbitrary-precision math
-to avoid integer overflow. All five endpoints
-require a multipart `POST` with a non-empty square CSV matrix of integers.
-Run `go test ./...` to execute the tests.
+Each endpoint accepts a multipart `POST` with a `file` field. The input must have no header and contain an integer in every cell. `echo`, `invert`, and `flatten` retain the uploaded cell text; `echo` and `invert` serialize it as CSV. `sum` and `multiply` use arbitrary-precision integers to avoid overflow.
 
-## What we're looking for
+Invalid input returns HTTP 400 with an error message. Unsupported methods return HTTP 405, and requests over 10 MiB (including multipart overhead) return HTTP 413.
 
-- The solution runs
-- The solution performs all cases correctly
-- The code is easy to read
-- The code is reasonably documented
-- The code is tested
-- The code is robust and handles invalid input and provides helpful error messages
+Run the unit tests with `go test ./...`.
