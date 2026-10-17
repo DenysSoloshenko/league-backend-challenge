@@ -57,10 +57,14 @@ Send request
 curl -F 'file=@/path/matrix.csv' "localhost:8080/echo"
 curl -F 'file=@/path/matrix.csv' "localhost:8080/invert"
 curl -F 'file=@/path/matrix.csv' "localhost:8080/flatten"
+curl -F 'file=@/path/matrix.csv' "localhost:8080/sum"
+curl -F 'file=@/path/matrix.csv' "localhost:8080/multiply"
 ```
 
 The `/invert` endpoint transposes the rows and columns; `/flatten` returns the
-values in row order on one line. All three available endpoints
+values in row order on one line. `/sum` and `/multiply` return the sum and
+product of all values as decimal integers. They use arbitrary-precision math
+to avoid integer overflow. All five endpoints
 require a multipart `POST` with a non-empty square CSV matrix of integers.
 Run `go test ./...` to execute the tests.
 

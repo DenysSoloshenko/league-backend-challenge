@@ -80,6 +80,40 @@ func TestFlattenRejectsInvalidMatrix(t *testing.T) {
 	}
 }
 
+func TestSumAndMultiply(t *testing.T) {
+	for _, test := range []struct {
+		name, input, sum, product string
+	}{
+		{"example", "1,2,3\n4,5,6\n7,8,9\n", "45", "362880"},
+		{"negative values", "-1,2\n3,4\n", "8", "-24"},
+		{"zero", "-1,0\n3,4\n", "6", "0"},
+		{"one large integer", "9223372036854775808\n", "9223372036854775808", "9223372036854775808"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			for _, operation := range []struct{ path, want string }{
+				{"/sum", test.sum},
+				{"/multiply", test.product},
+			} {
+				response := postMatrix(t, operation.path, test.input)
+				if response.Code != http.StatusOK || response.Body.String() != operation.want {
+					t.Fatalf("%s: status %d, body %q; want %q", operation.path, response.Code, response.Body.String(), operation.want)
+				}
+			}
+		})
+	}
+}
+
+func TestSumAndMultiplyRejectInvalidMatrix(t *testing.T) {
+	for _, path := range []string{"/sum", "/multiply"} {
+		t.Run(path, func(t *testing.T) {
+			response := postMatrix(t, path, "1,2\n3,x\n")
+			if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "invalid integer at row 2, column 2") {
+				t.Fatalf("status %d, body %q; want invalid-integer error", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestInvertRejectsInvalidInput(t *testing.T) {
 	for _, test := range []struct {
 		name, input, wantError string

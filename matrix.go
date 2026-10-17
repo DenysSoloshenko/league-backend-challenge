@@ -15,6 +15,8 @@ func newHandler() http.Handler {
 	mux.HandleFunc("/echo", matrixHandler("echo"))
 	mux.HandleFunc("/invert", matrixHandler("invert"))
 	mux.HandleFunc("/flatten", matrixHandler("flatten"))
+	mux.HandleFunc("/sum", matrixHandler("sum"))
+	mux.HandleFunc("/multiply", matrixHandler("multiply"))
 	return mux
 }
 
@@ -39,6 +41,25 @@ func matrixHandler(operation string) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if operation == "sum" || operation == "multiply" {
+			result := big.NewInt(0)
+			if operation == "multiply" {
+				result.SetInt64(1)
+			}
+			for _, row := range matrix {
+				for _, cell := range row {
+					// readMatrix already checked that every cell is an integer.
+					value, _ := new(big.Int).SetString(strings.TrimSpace(cell), 10)
+					if operation == "sum" {
+						result.Add(result, value)
+					} else {
+						result.Mul(result, value)
+					}
+				}
+			}
+			fmt.Fprint(w, result)
+			return
+		}
 		if operation == "flatten" {
 			values := make([]string, 0, len(matrix)*len(matrix))
 			for _, row := range matrix {
