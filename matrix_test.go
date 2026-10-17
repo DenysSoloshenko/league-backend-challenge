@@ -56,6 +56,30 @@ func TestEchoStillWorks(t *testing.T) {
 	}
 }
 
+func TestFlatten(t *testing.T) {
+	for _, test := range []struct {
+		name, input, want string
+	}{
+		{"example", "1,2,3\n4,5,6\n7,8,9\n", "1,2,3,4,5,6,7,8,9"},
+		{"single cell", "-42\n", "-42"},
+		{"row order and negatives", "0,-2\n3,4\n", "0,-2,3,4"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response := postMatrix(t, "/flatten", test.input)
+			if response.Code != http.StatusOK || response.Body.String() != test.want {
+				t.Fatalf("status %d, body %q; want %q", response.Code, response.Body.String(), test.want)
+			}
+		})
+	}
+}
+
+func TestFlattenRejectsInvalidMatrix(t *testing.T) {
+	response := postMatrix(t, "/flatten", "1,2\n3\n")
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "matrix must be square") {
+		t.Fatalf("status %d, body %q; want square-matrix error", response.Code, response.Body.String())
+	}
+}
+
 func TestInvertRejectsInvalidInput(t *testing.T) {
 	for _, test := range []struct {
 		name, input, wantError string

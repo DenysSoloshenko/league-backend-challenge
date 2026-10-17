@@ -56,9 +56,11 @@ Send request
 ```
 curl -F 'file=@/path/matrix.csv' "localhost:8080/echo"
 curl -F 'file=@/path/matrix.csv' "localhost:8080/invert"
+curl -F 'file=@/path/matrix.csv' "localhost:8080/flatten"
 ```
 
-The `/invert` endpoint transposes the rows and columns. Both available endpoints
+The `/invert` endpoint transposes the rows and columns; `/flatten` returns the
+values in row order on one line. All three available endpoints
 require a multipart `POST` with a non-empty square CSV matrix of integers.
 Run `go test ./...` to execute the tests.
 

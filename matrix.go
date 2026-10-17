@@ -12,12 +12,13 @@ import (
 
 func newHandler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/echo", matrixHandler(false))
-	mux.HandleFunc("/invert", matrixHandler(true))
+	mux.HandleFunc("/echo", matrixHandler("echo"))
+	mux.HandleFunc("/invert", matrixHandler("invert"))
+	mux.HandleFunc("/flatten", matrixHandler("flatten"))
 	return mux
 }
 
-func matrixHandler(invert bool) http.HandlerFunc {
+func matrixHandler(operation string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", http.MethodPost)
@@ -37,11 +38,18 @@ func matrixHandler(invert bool) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if invert {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if operation == "flatten" {
+			values := make([]string, 0, len(matrix)*len(matrix))
+			for _, row := range matrix {
+				values = append(values, row...)
+			}
+			fmt.Fprint(w, strings.Join(values, ","))
+			return
+		}
+		if operation == "invert" {
 			matrix = transpose(matrix)
 		}
-
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		writer := csv.NewWriter(w)
 		_ = writer.WriteAll(matrix)
 	}
